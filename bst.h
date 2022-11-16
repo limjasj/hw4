@@ -509,7 +509,6 @@ void BinarySearchTree<Key, Value>::insert(const std::pair<const Key, Value> &key
         current->setValue(keyValuePair.second);
         return;
       }
-      this->print();
     }
     
 //current node, parent of current
