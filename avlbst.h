@@ -138,7 +138,13 @@ protected:
     virtual void nodeSwap( AVLNode<Key,Value>* n1, AVLNode<Key,Value>* n2);
 
     // Add helper functions here
-
+    void insertFix(AVLNode<Key, Value>* parent, AVLNode<Key, Value>* current);
+    void removeFix(AVLNode<Key, Value>* current, int diff);
+    void rotateLeft(AVLNode<Key, Value>* current);
+    void rotateRight(AVLNode<Key, Value>* current);
+    AVLNode<Key, Value>* internalFind(const Key& k) const; 
+    static AVLNode<Key, Value>* predecessor(AVLNode<Key, Value>* current); 
+    static AVLNode<Key, Value>* successor(AVLNode<Key, Value>* current);
 
 };
 
@@ -150,6 +156,189 @@ template<class Key, class Value>
 void AVLTree<Key, Value>::insert (const std::pair<const Key, Value> &new_item)
 {
     // TODO
+    bool goesLeft=0;
+
+    AVLNode<Key, Value> *AVLRoot = static_cast<AVLNode<Key, Value>*>(this->root_);
+
+    if(AVLRoot == nullptr) //if empty tree
+    {
+      //insert keyValuePair
+      AVLNode<Key, Value>* newPair= new AVLNode<Key,Value>(new_item.first, new_item.second, nullptr);
+      newPair->setRight(nullptr);
+      newPair->setLeft(nullptr);
+      newPair->setBalance(0); //set balance to 0
+
+      this->root_ = newPair;
+      return;
+    }
+    AVLNode<Key, Value>* current=AVLRoot;
+    AVLNode<Key, Value>* parent=nullptr;
+
+    while (current) //parent exists, is not null
+    {
+      parent=current;
+      //go to leaf node
+      if(new_item.first < current->getKey())
+      {
+        current=current->getLeft();
+        goesLeft=1;
+      }
+      else if(new_item.first > current->getKey())
+      {
+        current=current->getRight();
+        goesLeft=0;
+      }
+      else if (new_item.first == current->getKey()) //same key
+      {
+        current->setValue(new_item.second);
+        return;
+      }
+    }
+    
+    if(goesLeft)
+    {
+      AVLNode<Key, Value>* newPair= new AVLNode<Key,Value>(new_item.first, new_item.second, parent);
+      newPair->setRight(nullptr);
+      newPair->setLeft(nullptr);
+      newPair->setBalance(0); //set balance to 0
+      parent->setLeft(newPair);
+      current=newPair;
+    }
+    else if(!goesLeft)
+    {
+      AVLNode<Key, Value>* newPair= new AVLNode<Key,Value>(new_item.first, new_item.second, parent);
+      newPair->setRight(nullptr);
+      newPair->setLeft(nullptr);
+      newPair->setBalance(0); //set balance to 0
+      parent->setRight(newPair);
+      current=newPair;
+    }
+
+    //if parent is -1 or +1, parent is now 0;
+    if(parent->getBalance() == -1 || parent->getBalance() == 1)
+    {
+        parent->setBalance(0);
+    }
+    else if(parent->getBalance() == 0)
+    {
+      if(goesLeft)  
+      {
+        parent->updateBalance(-1);
+      }
+      else 
+      {
+        parent->updateBalance(1);
+      }
+      
+      insertFix(parent, current);
+      
+    }
+}
+
+//root isn't avl notde, must cast to avl node
+template<class Key, class Value>
+void AVLTree<Key, Value>::insertFix(AVLNode<Key, Value>* parent, AVLNode<Key, Value>* current)
+{
+    
+    if(parent==nullptr) 
+    {
+        return;
+    }
+    AVLNode<Key, Value>* grandparent=parent->getParent();
+    if(grandparent == nullptr)
+    {
+      return;
+    }
+    else if(grandparent->getLeft() != nullptr && grandparent->getLeft() ==parent)
+    {
+      //parent is left child of grandparent
+      grandparent->updateBalance(-1);
+      if(grandparent->getBalance() ==0)
+      {
+          return;
+      }
+      else if (grandparent->getBalance() ==-1)
+      {
+          insertFix(grandparent, parent);
+      }
+      else if (grandparent->getBalance() == -2)
+      {
+        if(parent->getLeft() !=nullptr && parent->getLeft() == current) //zig zig
+        {
+            rotateRight(grandparent);
+            parent->setBalance(0);
+            grandparent->setBalance(0);
+        }
+        else if(parent->getRight() !=nullptr && parent->getRight() ==current) //zig zag
+        {
+          rotateLeft(parent);
+          rotateRight(grandparent);
+          if(current->getBalance() == -1)
+          {
+              parent->setBalance(0);
+              grandparent->setBalance(1);
+              current->setBalance(0);
+          }
+          else if(current->getBalance() == 0)
+          {
+              parent->setBalance(0);
+              grandparent->setBalance(0);
+              current->setBalance(0);
+          }
+          else if (current->getBalance() == 1)
+          {
+              parent->setBalance(-1);
+              grandparent->setBalance(0);
+              current->setBalance(0);
+          }
+        }
+      }
+    }
+    else if(grandparent->getRight() != nullptr && grandparent->getRight() ==parent)
+    {
+      grandparent->updateBalance(1);
+      if(grandparent->getBalance() ==0)
+      {
+          return;
+      }
+      else if (grandparent->getBalance() ==1)
+      {
+          insertFix(grandparent, parent);
+      }
+      else if (grandparent->getBalance() == 2)
+      {
+        if(parent->getRight() !=nullptr && parent->getRight() == current) //zig zig
+        {
+            rotateLeft(grandparent);
+            parent->setBalance(0);
+            grandparent->setBalance(0);
+        }
+        else if(parent->getLeft() !=nullptr && parent->getLeft() ==current) //zig zag
+        {
+          rotateRight(parent);
+          rotateLeft(grandparent);
+          if(current->getBalance() == 1) //did not change the if statements...
+          {
+              parent->setBalance(0);
+              grandparent->setBalance(-1);
+              current->setBalance(0);
+          }
+          else if(current->getBalance() == 0)
+          {
+              parent->setBalance(0);
+              grandparent->setBalance(0);
+              current->setBalance(0);
+          }
+          else if (current->getBalance() == -1)
+          {
+              parent->setBalance(1);
+              grandparent->setBalance(0);
+              current->setBalance(0);
+          }
+        }
+      }
+    }
+
 }
 
 /*
@@ -160,7 +349,430 @@ template<class Key, class Value>
 void AVLTree<Key, Value>:: remove(const Key& key)
 {
     // TODO
+    AVLNode<Key, Value>* current=internalFind(key);
+    if(current==nullptr) return;
+    AVLNode<Key, Value>* currParent=current->getParent();
+    AVLNode<Key, Value>* currLeft=current->getLeft();
+    AVLNode<Key, Value>* currRight=current->getRight();
+    AVLNode<Key, Value>* currPred=predecessor(current);
+    AVLNode<Key, Value> *AVLRoot = static_cast<AVLNode<Key, Value>*>(this->root_);
+
+    int diff;
+
+    if(current==AVLRoot) //is root, no parent
+    {
+      if(current->getLeft() == nullptr && current->getRight() == nullptr)//no children
+      {
+        this->root_=nullptr;
+      }
+      else if((current->getLeft() != nullptr && current->getRight() == nullptr))//has left child
+      {
+        currLeft->setParent(nullptr);
+        current->setLeft(nullptr);
+
+      
+        this->root_=currLeft;
+      }
+      else if((current->getLeft() == nullptr && current->getRight() != nullptr)) //has right child
+      {
+        currRight->setParent(nullptr);
+        current->setRight(nullptr);
+
+        this->root_=currRight;
+      }
+      else if (current->getLeft() != nullptr && current->getRight() != nullptr) //has 2 children
+      {
+        nodeSwap(current, currPred);
+        currParent=current->getParent();
+        if(current->getLeft() == nullptr)
+        {
+          if(current->getParent()->getLeft() != nullptr && 
+            current->getParent()->getLeft() ==current)
+          {
+            diff=1;
+            current->getParent()->setLeft(nullptr);    
+          }
+          else if(current->getParent()->getRight() != nullptr && 
+            current->getParent()->getRight() ==current)
+          {
+            diff=-1;
+            current->getParent()->setRight(nullptr);
+          }
+        }   
+
+        else if(current->getLeft() != nullptr)
+        {
+          current->getLeft()->setParent(current->getParent());
+          if(current->getParent()->getLeft() != nullptr && 
+            current->getParent()->getLeft() ==current)
+          {
+            diff=1;
+            current->getParent()->setLeft(current->getLeft());          
+          }
+          else if(current->getParent()->getRight() != nullptr && 
+            current->getParent()->getRight() ==current)
+          {
+            diff=-1;
+            current->getParent()->setRight(current->getLeft());
+          }
+        }
+
+        this->root_=currPred;
+        
+        current->setParent(nullptr);
+        current->setLeft(nullptr);
+        current->setRight(nullptr);
+      }
+    }
+    else if(current->getParent() != nullptr) //has parent
+    {
+      //is left child
+      if(currParent->getLeft() != nullptr && currParent->getLeft() == current)
+      {
+        diff=1;
+        if(current->getLeft() == nullptr && current->getRight() == nullptr) //no children
+        {
+            currParent->setLeft(nullptr);
+        }
+        else if (current->getLeft() != nullptr && current->getRight() != nullptr) //2 children
+        {
+          nodeSwap(current, currPred);
+          currParent=current->getParent();
+          if(current->getLeft() == nullptr) //node has no left child
+          {
+            if(current->getParent()->getLeft() != nullptr && 
+              current->getParent()->getLeft() ==current)
+            {
+              diff=1;
+              current->getParent()->setLeft(nullptr);
+            }
+            else if(current->getParent()->getRight() != nullptr && 
+              current->getParent()->getRight() ==current)
+            {
+              diff=-1;
+              current->getParent()->setRight(nullptr);
+            }
+          }
+          else if(current->getLeft() != nullptr) //node has left child
+          {
+            current->getLeft()->setParent(current->getParent());
+            if(current->getParent()->getLeft() != nullptr && 
+              current->getParent()->getLeft() == current)
+            {
+              diff=1;
+              current->getParent()->setLeft(current->getLeft());
+            }
+            else if(current->getParent()->getRight() != nullptr && 
+              current->getParent()->getRight() == current)
+            {              
+              diff=-1;
+              current->getParent()->setRight(current->getLeft());
+            }
+          }
+        }
+        else if (current->getLeft() != nullptr && current->getRight() == nullptr) //only left child
+        {
+          currParent->setLeft(currLeft);
+          currLeft->setParent(currParent);
+        }
+        else if (current->getLeft() == nullptr && current->getRight() != nullptr) //only right child
+        {
+          currParent->setLeft(currRight);
+          currRight->setParent(currParent);
+        }
+        
+      }
+      if(currParent->getRight() != nullptr && currParent->getRight() == current) //is right child
+      {
+        diff=-1;
+        if(current->getLeft() == nullptr && current->getRight() == nullptr) //no children
+        {
+          currParent->setRight(nullptr);
+        }
+        else if (current->getLeft() != nullptr && current->getRight() != nullptr) //2 children
+        {
+          nodeSwap(current, currPred);
+          currParent=current->getParent();
+          if(current->getLeft() == nullptr)
+          {
+            if(current->getParent()->getLeft() != nullptr && 
+              current->getParent()->getLeft() ==current)
+            {
+              diff=1;
+              current->getParent()->setLeft(nullptr);         
+            }
+            else if(current->getParent()->getRight() != nullptr && 
+              current->getParent()->getRight() ==current)
+            {
+              diff=-1;
+              current->getParent()->setRight(nullptr);
+            }
+          }
+          else if(current->getLeft() != nullptr)
+          {
+            current->getLeft()->setParent(current->getParent());
+            if(current->getParent()->getLeft() != nullptr && 
+              current->getParent()->getLeft() ==current)
+            {
+              diff=1;
+              current->getParent()->setLeft(current->getLeft());       
+            }
+            else if(current->getParent()->getRight() != nullptr &&  
+              current->getParent()->getRight() ==current)
+            {
+              diff=-1;
+              current->getParent()->setRight(current->getLeft());
+            }
+          }
+        }
+        else if (current->getLeft() != nullptr && current->getRight() == nullptr) //only left child
+        {
+          currParent->setRight(currLeft);
+          currLeft->setParent(currParent);
+        }
+        else if (current->getLeft() == nullptr && current->getRight() != nullptr) //only right child
+        {
+          currParent->setRight(currRight);
+          currRight->setParent(currParent);
+        }
+        
+      }
+      current->setParent(nullptr);
+      current->setLeft(nullptr);
+      current->setRight(nullptr);
+    }  
+    delete current;
+    //keep parent and child node 
+
+    removeFix(currParent, diff);
+    
 }
+
+template<class Key, class Value>
+void AVLTree<Key, Value>::removeFix(AVLNode<Key, Value>* current, int diff)
+{
+  if(current ==nullptr)
+  {
+    return;
+  }
+  AVLNode<Key, Value>* parent=current->getParent();
+  int ndiff=0;
+  
+  if(parent != nullptr)
+  { 
+    if(parent->getLeft() != nullptr && parent->getLeft() == current)
+    {
+      ndiff=1;
+    }
+    else if(parent->getRight() != nullptr && parent->getRight() == current)
+    {
+      ndiff=-1;
+    }
+  }
+  // else if(parent==nullptr)
+  // {
+  //   if (current->getBalance() + diff >=0)
+  //   {
+  //     ndiff=-1;
+  //   }
+  //   else if(current->getBalance() + diff <0)
+  //   {
+  //     ndiff=1;
+  //   }
+  // }
+
+
+  //store getBalance into a variable
+
+  if(diff==-1)
+  {
+    if(current->getBalance() + diff ==-2)
+    {
+      AVLNode<Key, Value>* tallChild=current->getLeft();
+      if(tallChild->getBalance() == -1)
+      {
+        rotateRight(current);
+        current->setBalance(0);
+        tallChild->setBalance(0);
+        removeFix(parent, ndiff);
+      }
+      else if(tallChild->getBalance() == 0)
+      {
+        rotateRight(current);
+        current->setBalance(-1);
+        tallChild->setBalance(1);
+      }
+      else if (tallChild->getBalance() == 1)
+      {
+        AVLNode<Key, Value>* grandChild=tallChild->getRight();
+        rotateLeft(tallChild);
+        rotateRight(current);
+        if(grandChild->getBalance() == 1)
+        {
+          current->setBalance(0);
+          tallChild->setBalance(-1);
+          grandChild->setBalance(0);
+        }
+        else if(grandChild->getBalance() == 0)
+        {
+          current->setBalance(0);
+          tallChild->setBalance(0);
+          grandChild->setBalance(0);
+        }
+        else if(grandChild->getBalance() == -1)
+        {
+          current->setBalance(1);
+          tallChild->setBalance(0);
+          grandChild->setBalance(0);
+        }
+        removeFix(parent, ndiff);
+      }
+    }
+    else if (current->getBalance() + diff ==-1)
+    {
+      current->setBalance(-1);
+    }
+    else if (current->getBalance() + diff == 0)
+    {
+      current->setBalance(0);
+      removeFix(parent, ndiff);
+    }
+  }
+  else if(diff==1)
+  {
+    if(current->getBalance() + diff ==2)
+    {
+      AVLNode<Key, Value>* tallChild=current->getRight();
+      if(tallChild->getBalance() == 1)
+      {
+        rotateLeft(current);
+        current->setBalance(0);
+        tallChild->setBalance(0);
+        removeFix(parent, ndiff);
+      }
+      else if(tallChild->getBalance() == 0)
+      {
+        rotateLeft(current);
+        current->setBalance(1);
+        tallChild->setBalance(-1);
+      }
+      else if (tallChild->getBalance() == -1)
+      {
+        AVLNode<Key, Value>* grandChild=tallChild->getLeft();
+        rotateRight(tallChild);
+        rotateLeft(current);
+        if(grandChild->getBalance() == -1)
+        {
+          current->setBalance(0);
+          tallChild->setBalance(1);
+          grandChild->setBalance(0);
+        }
+        else if(grandChild->getBalance() == 0)
+        {
+          current->setBalance(0);
+          tallChild->setBalance(0);
+          grandChild->setBalance(0);
+        }
+        else if(grandChild->getBalance() == 1)
+        {
+          current->setBalance(-1);
+          tallChild->setBalance(0);
+          grandChild->setBalance(0);
+        }
+        removeFix(parent, ndiff);
+      }
+    }
+    else if (current->getBalance() + diff ==1)
+    {
+      current->setBalance(1);
+    }
+    else if (current->getBalance() + diff == 0)
+    {
+      current->setBalance(0);
+      removeFix(parent, ndiff);
+    }
+  }
+}
+
+template<class Key, class Value>
+void AVLTree<Key, Value>::rotateLeft(AVLNode<Key, Value>* parent)
+{
+  AVLNode<Key, Value>* current=parent->getRight();
+  AVLNode<Key, Value>* grandParent=parent->getParent();
+  if(grandParent == nullptr)
+  {
+    this->root_=current;
+  }
+  else
+  {
+    if(grandParent->getLeft() != nullptr && grandParent->getLeft()==parent )
+    {
+      grandParent->setLeft(current);
+    }
+    else if(grandParent->getRight() != nullptr && grandParent->getRight()==parent )
+    {
+      grandParent->setRight(current);
+    }
+  }
+  //if parent is on the left side of grandparent, then you set the left child of grandparent to be current
+
+
+  parent->setRight(current->getLeft());
+  if(current->getLeft() != nullptr)
+  {
+    current->getLeft()->setParent(parent);
+  }
+  parent->setParent(current);
+
+  current->setParent(grandParent);
+  current->setLeft(parent);
+
+  // AVLNode<Key, Value> *AVLRoot = static_cast<AVLNode<Key, Value>*>(this->root_);
+  // if(parent == AVLRoot)
+  // {
+  //   this->root_=current;
+  // }
+}
+
+template<class Key, class Value>
+void AVLTree<Key, Value>::rotateRight(AVLNode<Key, Value>* parent)
+{
+  AVLNode<Key, Value>* current=parent->getLeft();
+  AVLNode<Key, Value>* grandParent=parent->getParent();
+  if(grandParent == nullptr)
+  {
+    this->root_=current;
+  }
+  else
+  {
+    if(grandParent->getLeft() != nullptr && grandParent->getLeft()==parent )
+    {
+      grandParent->setLeft(current);
+    }
+    else if(grandParent->getRight() != nullptr && grandParent->getRight()==parent )
+    {
+      grandParent->setRight(current);
+    }
+  }
+
+  parent->setLeft(current->getRight());
+  if(current->getRight() != nullptr)
+  {
+    current->getRight()->setParent(parent);
+  }
+  parent->setParent(current);
+
+  current->setParent(grandParent);
+  current->setRight(parent);
+
+  // AVLNode<Key, Value> *AVLRoot = static_cast<AVLNode<Key, Value>*>(this->root_);
+  // if(parent == AVLRoot)
+  // {
+  //   this->root_=current;
+  // }
+
+}
+
 
 template<class Key, class Value>
 void AVLTree<Key, Value>::nodeSwap( AVLNode<Key,Value>* n1, AVLNode<Key,Value>* n2)
@@ -170,6 +782,112 @@ void AVLTree<Key, Value>::nodeSwap( AVLNode<Key,Value>* n1, AVLNode<Key,Value>* 
     n1->setBalance(n2->getBalance());
     n2->setBalance(tempB);
 }
+
+template<typename Key, typename Value>
+AVLNode<Key, Value>* AVLTree<Key, Value>::internalFind(const Key& key) const
+{
+    // TODO
+    //return find(key);
+    AVLNode<Key, Value> *current = static_cast<AVLNode<Key, Value>*>(this->root_);
+    //AVLNode<Key, Value>* current=this->root_;
+    while(current!=nullptr)
+    {
+      if(current->getKey()==key)
+      {
+        return current;
+      }
+      else if(key < current->getKey())
+      {
+        current=current->getLeft();
+      }
+      else if(key >= current->getKey())
+      {
+        current=current->getRight();
+      }
+    }
+    return nullptr;
+}
+
+
+template<class Key, class Value>
+AVLNode<Key, Value>*
+AVLTree<Key, Value>::predecessor(AVLNode<Key, Value>* current)
+{
+    // TODO
+
+    AVLNode<Key, Value>* pred=current;
+    //If left child exists, predecessor is the right most node of the left subtree
+    if(pred->getLeft() !=nullptr)
+    {
+      pred=pred->getLeft();
+      while(pred->getRight() != nullptr)
+      {
+        pred=pred->getRight();
+      }
+      return pred;
+    }
+    else //walk up the ancestor chain until you traverse the first right child pointer
+    {
+      bool found =0;
+      while(pred->getParent() != nullptr)
+      {
+        //if the right child of parent exists
+        if( pred->getParent()->getRight() != nullptr && pred == pred->getParent()->getRight()) 
+        {
+          //if they match
+          pred=pred->getParent();
+          found=1;
+          break;          
+        }
+        pred=pred->getParent();
+      }
+      if(!found)
+      {
+        pred=nullptr;
+      }
+      return pred;
+    }
+    
+}
+
+template<class Key, class Value>
+AVLNode<Key, Value>*
+AVLTree<Key, Value>::successor(AVLNode<Key, Value>* current)
+{
+  AVLNode<Key, Value>* succ=current;
+  //If right child exists, successor is the left most node of the left subtree
+  if(succ->getRight() !=nullptr)
+  {
+    succ=succ->getRight();
+    while(succ->getLeft() != nullptr)
+    {
+      succ=succ->getLeft();
+    }
+    return succ;
+  }
+  else //walk up the ancestor chain until you traverse the first left child pointer
+  {
+    bool found =0;
+    while(succ->getParent() != nullptr)
+    {
+      //if the left child of parent exists
+      if( succ->getParent()->getLeft() != nullptr && succ == succ->getParent()->getLeft()) 
+      {
+        //if they match
+        succ=succ->getParent();
+        found=1;
+        break;
+      }
+      succ=succ->getParent();
+    }
+    if(!found)
+    {
+      succ=nullptr;
+    }
+    return succ;
+  }
+}
+
 
 
 #endif
